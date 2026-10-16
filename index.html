@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8f2" />
+    <meta name="description" content="Compare two Commander decks and get an alphabetical checklist of cards to remove. Free, open source, and session only." />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Deck Swapper · Commander removal checklist</title>
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="brand" href="./" aria-label="Deck Swapper home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
+        <span>deck<span class="brand-light">swapper</span><small>THE COMMANDER WORKBENCH</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="session-badge"><span aria-hidden="true">◌</span> Session only</span>
+        <a class="source-link" href="https://github.com/lucasc017/card-deck-swapper" target="_blank" rel="noopener noreferrer" aria-label="View the open-source project on GitHub">GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="app" class="shell">
+      <section class="intro" aria-labelledby="intro-heading">
+        <div>
+          <p class="eyebrow"><span class="tiny-dot"></span> A LITTLE LESS SORTING. A LOT MORE PLAYING.</p>
+          <h1 id="intro-heading">New list.<br />Make room for it.</h1>
+          <p class="intro-copy">Turn two Moxfield decks into one clear checklist.<br class="desktop-break" /> See exactly what to pull from the deck on your table.</p>
+        </div>
+        <div class="process" aria-label="How it works">
+          <div><span>01</span><p>Bring your lists<small>Original deck → target deck</small></p></div>
+          <div><span>02</span><p>Find the difference<small>Mainboard + commanders</small></p></div>
+          <div><span>03</span><p>Pull. Check. Done.<small>One card at a time</small></p></div>
+        </div>
+      </section>
+
+      <section class="workbench" aria-labelledby="setup-heading">
+        <div class="section-label"><h2 id="setup-heading">Set up your swap</h2><span>01 / THE COMPARISON</span></div>
+        <form id="compare-form" novalidate>
+          <div id="deck-inputs" class="deck-inputs"></div>
+          <div class="compare-actions">
+            <div class="input-hint"><span aria-hidden="true">↳</span><p>Just the cards to remove.<small>No additions, no accounts, no saved data.</small></p></div>
+            <button id="compare-button" class="button button-primary" type="submit"><span>Find cards to remove</span><span aria-hidden="true">↗</span></button>
+          </div>
+        </form>
+        <div class="under-form"><p>First time here? <button id="example-button" class="text-button" type="button">Try an example</button></p><p>Progress clears when you refresh.</p></div>
+        <p id="comparison-notice" class="comparison-notice" role="status" tabindex="-1" hidden></p>
+      </section>
+
+      <section id="results" class="results" aria-labelledby="results-heading" hidden>
+        <div class="section-label"><h2 id="results-heading" tabindex="-1">Your removal checklist</h2><span>02 / AT THE TABLE</span></div>
+        <div class="result-panel">
+          <div class="deck-summary"><div><span class="eyebrow">FROM YOUR ORIGINAL</span><h3 id="original-name"></h3><p id="original-total"></p></div><span class="summary-arrow" aria-hidden="true">→</span><div><span class="eyebrow">TOWARD YOUR TARGET</span><h3 id="target-name"></h3><p id="target-total"></p></div></div>
+          <div class="progress-area"><div class="progress-label"><p><strong id="removed-count">0</strong><span id="required-count"></span> removed</p><span id="remaining-count"></span></div><progress id="removal-progress" max="1" value="0" aria-label="Removal progress"></progress><p id="progress-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></p></div>
+          <div class="list-toolbar"><label class="filter-label"><input id="remaining-filter" type="checkbox" /> Remaining only</label><button id="reset-progress" type="button" class="text-button">Reset progress</button></div>
+          <div class="list-column-labels" aria-hidden="true"><span>CARD NAME · A–Z</span><span>REMOVAL PROGRESS</span></div>
+          <ul id="removal-list" class="removal-list" aria-label="Cards to remove in alphabetical order"></ul>
+          <div id="completion-message" class="completion-message" hidden></div>
+          <div class="list-footer"><span>Leave the rest in your deck. You’re all set.</span><button id="start-over" type="button" class="text-button">Start over <span aria-hidden="true">↗</span></button></div>
+        </div>
+      </section>
+      <div class="session-actions"><button id="clear-session" class="text-button" type="button">Clear inputs & start over</button></div>
+    </main>
+
+    <footer class="site-footer shell"><p>A small tool for your next big deck idea.</p><div><span>Made for Commander</span><span aria-hidden="true">·</span><a href="https://github.com/lucasc017/card-deck-swapper/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Open source · MIT</a></div></footer>
+    <noscript><p class="shell">Enable JavaScript to compare deck lists. Comparisons run in your browser.</p></noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
