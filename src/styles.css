@@ -110,6 +110,11 @@ h1 { margin-top: 20px; font-size: clamp(48px, 6.4vw, 76px); line-height: 1.04; l
 .deck-summary h3 { font-size: 17px; margin: 8px 0 6px; letter-spacing: -.4px; overflow-wrap: anywhere; }
 .deck-summary p { font-size: 10px; color: var(--muted); line-height: 1.6; }
 .summary-arrow { font-size: 26px; color: var(--muted); align-self: center; }
+.swap-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 27px; border-bottom: 1px solid var(--line); }
+.swap-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; background: var(--green-soft); color: var(--green); border: 1px solid var(--line); border-radius: 7px; font-size: 12px; font-weight: 600; }
+.swap-button:hover:not(:disabled) { border-color: var(--green); }
+.swap-button:disabled { opacity: .6; }
+.swap-controls > p:not(.sr-only) { color: var(--muted); font-size: 11px; line-height: 1.6; flex: 1 1 180px; }
 .progress-area { padding: 24px 27px 20px; }
 .progress-label { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
 .progress-label p { font-size: 12px; color: var(--muted); }
@@ -208,6 +213,7 @@ progress::-moz-progress-bar { background: var(--green); border-radius: 10px; }
   .deck-summary h3 { font-size: 14px; }
   .deck-summary p { font-size: 9px; }
   .summary-arrow { font-size: 20px; }
+  .swap-controls { padding-inline: 20px; }
   .progress-area { padding: 20px 20px 12px; }
   .list-toolbar { padding: 0 20px 12px; }
   .list-column-labels { padding: 12px 20px; font-size: 8px; }

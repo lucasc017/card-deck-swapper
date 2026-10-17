@@ -6,6 +6,7 @@ import { parseDeckText } from './imports/text';
 import { initialState, reduce } from './state';
 import type { Action } from './state';
 import { createDeckForm } from './ui/deck-form';
+import type { DeckFormValues } from './ui/deck-form';
 import { createRemovalList } from './ui/removal-list';
 import { requiredElement } from './ui/status';
 
@@ -15,9 +16,12 @@ const exampleTarget = 'Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring
 export function mountApp() {
   let state = initialState();
   let sequence = 0;
+  let comparedInputs: Readonly<Record<DeckSide, DeckFormValues>> | null = null;
   const notice = requiredElement('comparison-notice');
   const compareButton = requiredElement<HTMLButtonElement>('compare-button');
   const compareLabel = compareButton.querySelector('span');
+  const swapButton = requiredElement<HTMLButtonElement>('swap-decks');
+  const swapAnnouncement = requiredElement('swap-announcement');
 
   function dispatch(action: Action) {
     state = reduce(state, action);
@@ -39,16 +43,18 @@ export function mountApp() {
 
   function render() {
     compareButton.disabled = state.loading;
+    swapButton.disabled = state.loading || !state.comparison;
     compareButton.classList.toggle('is-loading', state.loading);
     compareButton.setAttribute('aria-busy', String(state.loading));
     if (compareLabel) compareLabel.textContent = state.loading ? 'Reading your decks…' : 'Find cards to remove';
     checklist.render(state);
   }
 
-  async function compare() {
+  async function compare(swapped = false) {
     cancelPending();
     const run = sequence;
     notice.hidden = true;
+    swapAnnouncement.textContent = '';
     dispatch({ type: 'loading', value: true });
     const sides: readonly DeckSide[] = ['original', 'target'];
     const results = await Promise.allSettled(sides.map(async (side): Promise<DeckSnapshot> => {
@@ -64,13 +70,19 @@ export function mountApp() {
     if (run !== sequence) return;
     const [original, target] = results;
     if (original?.status === 'fulfilled' && target?.status === 'fulfilled') {
+      comparedInputs = { original: forms.original.values(), target: forms.target.values() };
       dispatch({ type: 'compared', comparison: {
         original: original.value, target: target.value,
         items: compareDecks(original.value, target.value),
       } });
-      const heading = requiredElement('results-heading');
-      heading.focus({ preventScroll: true });
-      heading.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+      if (swapped) {
+        swapAnnouncement.textContent = `Decks swapped. Removing cards from ${original.value.name} to match ${target.value.name}. Removal progress reset.`;
+        swapButton.focus({ preventScroll: true });
+      } else {
+        const heading = requiredElement('results-heading');
+        heading.focus({ preventScroll: true });
+        heading.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+      }
     } else {
       results.forEach((result, index) => {
         const side = sides[index];
@@ -88,6 +100,13 @@ export function mountApp() {
   }
 
   requiredElement<HTMLFormElement>('compare-form').addEventListener('submit', (event) => { event.preventDefault(); void compare(); });
+  swapButton.addEventListener('click', () => {
+    if (!comparedInputs) return;
+    const previous = comparedInputs;
+    cancelPending();
+    forms.original.restore(previous.target); forms.target.restore(previous.original);
+    void compare(true);
+  });
   requiredElement('example-button').addEventListener('click', () => {
     cancelPending();
     forms.original.setText(exampleOriginal); forms.target.setText(exampleTarget);
@@ -95,6 +114,7 @@ export function mountApp() {
   });
   function startOver() {
     cancelPending();
+    comparedInputs = null; swapAnnouncement.textContent = '';
     forms.original.reset(); forms.target.reset(); notice.hidden = true;
     dispatch({ type: 'start-over' }); forms.original.focus();
   }

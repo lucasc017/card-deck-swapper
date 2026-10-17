@@ -292,3 +292,98 @@ test('starting over prevents an unfinished file read from restoring old deck dat
   await expect(original.getByRole('status')).toBeEmpty();
   await expect(page.locator('#results')).toBeHidden();
 });
+
+test('swaps pasted decks in both directions and resets progress and filtering with keyboard focus preserved', async ({ page }) => {
+  await comparePasted(page);
+  await page.getByRole('checkbox', { name: 'Mark Cultivate removed', exact: true }).check();
+  await page.getByRole('button', { name: 'Mark one Forest removed', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Remaining only' }).check();
+  const swap = page.getByRole('button', { name: 'Swap decks', exact: true });
+  await swap.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#original-text')).toHaveValue(targetText);
+  await expect(page.locator('#target-text')).toHaveValue(originalText);
+  await expect(page.locator('#original-total')).toHaveText('5 cards · mainboard + commanders');
+  await expect(page.locator('#target-total')).toHaveText('10 cards · mainboard + commanders');
+  await expect(page.locator('.card-name')).toHaveText(['Swords to Plowshares']);
+  await expect(page.locator('#remaining-count')).toHaveText('1 left to pull');
+  await expect(page.locator('#removed-count')).toHaveText('0');
+  await expect(page.getByRole('checkbox', { name: 'Remaining only' })).not.toBeChecked();
+  await expect(swap).toBeFocused();
+  await expect(page.locator('#swap-announcement')).toContainText('Decks swapped');
+  await page.getByRole('checkbox', { name: 'Mark Swords to Plowshares removed', exact: true }).check();
+  await swap.click();
+  await expect(page.locator('#original-text')).toHaveValue(originalText);
+  await expect(page.locator('#target-text')).toHaveValue(targetText);
+  await expect(page.locator('.card-name')).toHaveText(['Cultivate', 'Forest', "Kodama's Reach", 'Swiftfoot Boots']);
+  await expect(page.locator('#remaining-count')).toHaveText('6 left to pull');
+  await expect(page.locator('#removed-count')).toHaveText('0');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('swaps both API responses with their matching URLs and deck names', async ({ page }) => {
+  await page.locator('#original-url').fill(originalUrl);
+  await page.locator('#original-json').fill(JSON.stringify(originalPayload));
+  await page.locator('#target-url').fill(targetUrl);
+  await page.locator('#target-json').fill(JSON.stringify(targetPayload));
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(request.url()));
+  await page.getByRole('button', { name: 'Swap decks', exact: true }).click();
+  await expect(page.locator('#original-name')).toHaveText('The next chapter');
+  await expect(page.locator('#target-name')).toHaveText('Counters & company');
+  await expect(page.locator('#original-url')).toHaveValue(targetUrl);
+  await expect(page.locator('#target-url')).toHaveValue(originalUrl);
+  await expect(page.locator('#original-json')).toHaveValue(JSON.stringify(targetPayload));
+  await expect(page.locator('#target-json')).toHaveValue(JSON.stringify(originalPayload));
+  await expect(page.locator('.card-name')).toHaveText(['Swords to Plowshares']);
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#comparison-notice')).toBeHidden();
+  await expect(page.locator('#remaining-count')).toHaveText('1 left to pull');
+  expect(requests).toEqual([]);
+});
+
+test('swaps saved JSON and pasted text, recovering the last compared pair after an invalid edit', async ({ page }) => {
+  const original = page.getByRole('region', { name: 'Original deck', exact: true });
+  const target = page.getByRole('region', { name: 'Target deck', exact: true });
+  await page.locator('#original-url').fill(originalUrl);
+  await original.getByLabel('Or choose a saved JSON file').setInputFiles({
+    name: 'deck.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(originalPayload)),
+  });
+  await expect(original.getByRole('status')).toContainText('Loaded locally');
+  await paste(page, 'Target deck', targetText);
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await page.getByRole('button', { name: 'Swap decks', exact: true }).click();
+  await expect(original.getByRole('button', { name: 'Paste deck', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(target.getByRole('button', { name: 'Guided API', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#target-url')).toHaveValue(originalUrl);
+  await expect(page.locator('#target-json')).toHaveValue(JSON.stringify(originalPayload));
+  await expect(page.locator('#original-text')).toHaveValue(targetText);
+  await expect(page.locator('#target-name')).toHaveText('Counters & company');
+  await page.getByRole('checkbox', { name: 'Mark Swords to Plowshares removed', exact: true }).check();
+  await page.locator('#target-json').fill(truncatedCommanderJson);
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#target-error')).toBeVisible();
+  await expect(page.locator('#removed-count')).toHaveText('1');
+  await page.getByRole('button', { name: 'Swap decks', exact: true }).click();
+  await expect(page.locator('#original-json')).toHaveValue(JSON.stringify(originalPayload));
+  await expect(page.locator('#target-text')).toHaveValue(targetText);
+  await expect(original.getByRole('button', { name: 'Guided API', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(target.getByRole('button', { name: 'Paste deck', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#original-name')).toHaveText('Counters & company');
+  await expect(page.locator('#target-error')).toBeHidden();
+  await expect(page.locator('#comparison-notice')).toBeHidden();
+  await expect(page.locator('#remaining-count')).toHaveText('6 left to pull');
+  await expect(page.locator('#removed-count')).toHaveText('0');
+});
+
+test('can reverse a comparison that initially needs no removals', async ({ page }) => {
+  await paste(page, 'Original deck', '1 Sol Ring');
+  await paste(page, 'Target deck', '1 Sol Ring\n1 Cultivate');
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.getByText('No removals needed. Every card in your original deck can stay.')).toBeVisible();
+  await page.getByRole('button', { name: 'Swap decks', exact: true }).click();
+  await expect(page.locator('.card-name')).toHaveText(['Cultivate']);
+  await expect(page.locator('#remaining-count')).toHaveText('1 left to pull');
+  await expect(page.locator('#removed-count')).toHaveText('0');
+});

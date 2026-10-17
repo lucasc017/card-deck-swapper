@@ -8,6 +8,13 @@ export type DeckInput =
   | { readonly kind: 'api'; readonly value: string; readonly url: string }
   | { readonly kind: 'text'; readonly value: string };
 
+export interface DeckFormValues {
+  readonly mode: 'api' | 'text';
+  readonly url: string;
+  readonly json: string;
+  readonly text: string;
+}
+
 export function createDeckForm(side: DeckSide, onEdit: () => void) {
   const title = side === 'original' ? 'Original deck' : 'Target deck';
   const root = element('section', `deck-card deck-card-${side}`);
@@ -172,6 +179,11 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
   return {
     element: root,
     read: (): DeckInput => mode === 'api' ? { kind: 'api', value: json.value, url: url.value } : { kind: 'text', value: text.value },
+    values: (): DeckFormValues => ({ mode, url: url.value, json: json.value, text: text.value }),
+    restore(values: DeckFormValues) {
+      edited(); url.value = values.url; json.value = values.json; text.value = values.text;
+      root.classList.remove('is-loading'); setMode(values.mode);
+    },
     clearError,
     loading(value: boolean) { note.textContent = value ? 'Reading your list…' : ''; root.classList.toggle('is-loading', value); },
     ready(deck: DeckSnapshot) { note.textContent = `✓ Ready · ${deckTotal(deck)} cards`; root.classList.remove('is-loading'); },

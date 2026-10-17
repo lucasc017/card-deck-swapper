@@ -11,6 +11,8 @@ An open-source, session-only Commander workbench. Compare an original deck with 
 3. Select **Find cards to remove**. Check the imported deck names and card totals.
 4. Work through the alphabetical checklist. Check individual cards or use the copy counter for repeated cards. Undo mistakes, filter remaining cards, or reset progress.
 
+Entered the decks in reverse? Select **Swap decks** below the comparison’s deck summary. The app exchanges the inputs (including their source modes, URLs, and JSON/text), recalculates removals in the opposite direction, and resets removal progress and filtering. You can swap back with the same button. If a later edit fails to import, swapping uses the last successfully compared deck pair shown in the checklist.
+
 The comparison includes **mainboard and commanders combined**. Sideboards, considering lists, companions, and tokens are excluded. Artwork, set, collector number, and foil variations do not affect matching. Cards needed only by the target deck are outside this tool’s removal workflow. Deck legality is not evaluated; incomplete builds are allowed.
 
 ### Guided API and text fallback

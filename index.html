@@ -52,6 +52,7 @@
         <div class="section-label"><h2 id="results-heading" tabindex="-1">Your removal checklist</h2><span>02 / AT THE TABLE</span></div>
         <div class="result-panel">
           <div class="deck-summary"><div><span class="eyebrow">FROM YOUR ORIGINAL</span><h3 id="original-name"></h3><p id="original-total"></p></div><span class="summary-arrow" aria-hidden="true">→</span><div><span class="eyebrow">TOWARD YOUR TARGET</span><h3 id="target-name"></h3><p id="target-total"></p></div></div>
+          <div class="swap-controls"><button id="swap-decks" class="swap-button" type="button" aria-describedby="swap-help"><span aria-hidden="true">⇄</span> Swap decks</button><p id="swap-help">Reverses the comparison and resets removal progress.</p><p id="swap-announcement" class="sr-only" role="status" aria-atomic="true"></p></div>
           <div class="progress-area"><div class="progress-label"><p><strong id="removed-count">0</strong><span id="required-count"></span> removed</p><span id="remaining-count"></span></div><progress id="removal-progress" max="1" value="0" aria-label="Removal progress"></progress><p id="progress-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></p></div>
           <div class="list-toolbar"><label class="filter-label"><input id="remaining-filter" type="checkbox" /> Remaining only</label><button id="reset-progress" type="button" class="text-button">Reset progress</button></div>
           <div class="list-column-labels" aria-hidden="true"><span>CARD NAME · A–Z</span><span>REMOVAL PROGRESS</span></div>
