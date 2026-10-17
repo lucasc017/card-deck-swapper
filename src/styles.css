@@ -73,6 +73,9 @@ h1 { margin-top: 20px; font-size: clamp(48px, 6.4vw, 76px); line-height: 1.04; l
 .api-open-button { display: block; width: 100%; min-height: 46px; margin-top: 12px; padding: 10px 14px; background: var(--green-soft); color: var(--green); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; font-weight: 600; }
 .api-open-button:hover { border-color: var(--green); }
 .api-fallback { text-align: left; justify-self: start; }
+.deck-text + .field-label { margin-top: 18px; }
+.json-file { display: block; width: 100%; min-width: 0; min-height: 44px; font-size: 12px; color: var(--muted); }
+.json-file::file-selector-button { min-height: 44px; margin-right: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--green-soft); color: var(--green); font: inherit; cursor: pointer; }
 .export-help { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.7; }
 .export-help summary { cursor: pointer; min-height: 44px; display: list-item; align-content: center; }
 .export-help ol { margin: 0; padding-left: 18px; }

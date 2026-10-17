@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { moxfieldApiUrl, moxfieldDeckId, parseMoxfieldDeck, parseMoxfieldJson } from '../../src/imports/moxfield';
 import { deckTotal } from '../../src/domain/normalize';
-import { originalId, originalPayload, originalUrl, targetId } from '../fixtures/decks';
+import { completeCommanderPayload, originalId, originalPayload, originalUrl, targetId, truncatedCommanderJson } from '../fixtures/decks';
 
 describe('Moxfield adapter', () => {
   it('extracts an ID, ignores query/fragment, and permits www', () => {
@@ -38,6 +38,20 @@ describe('Moxfield adapter', () => {
     const text = `\uFEFF${JSON.stringify(originalPayload)}`;
     expect(parseMoxfieldJson(text, originalUrl)).toEqual(parseMoxfieldDeck(originalPayload));
     expect(deckTotal(parseMoxfieldJson(text))).toBe(10);
+  });
+  it('reads a full 98-mainboard / 2-commander response, ignoring preview and extra metadata', () => {
+    const deck = parseMoxfieldJson(JSON.stringify(completeCommanderPayload), originalUrl);
+    expect(deckTotal(deck)).toBe(100);
+    expect(deck.cards).toHaveLength(93);
+    expect(deck.cards.find((card) => card.name === 'Forest')?.quantity).toBe(4);
+    expect(deck.cards.filter((card) => card.name.endsWith('Commander'))).toHaveLength(2);
+    expect(deck.cards.some((card) => ['Preview card only', 'Black Lotus', 'Time Walk'].includes(card.name))).toBe(false);
+  });
+  it('identifies JSON cut off inside card metadata and offers saved-file recovery', () => {
+    expect(() => parseMoxfieldJson(truncatedCommanderJson)).toThrow(expect.objectContaining({
+      code: 'invalid-json', message: expect.stringContaining('appears cut off'),
+    }));
+    expect(() => parseMoxfieldJson(truncatedCommanderJson)).toThrow(/JSON file/u);
   });
   it.each(['', ' ', '{"name":', '<html>Forbidden</html>', '1 Sol Ring\n4 Forest'])('reports incomplete or non-JSON input with paste recovery', (text) => {
     expect(() => parseMoxfieldJson(text)).toThrow(expect.objectContaining({ code: 'invalid-json' }));

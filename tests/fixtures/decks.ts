@@ -57,3 +57,22 @@ export const originalPayload = moxfieldFixture('Counters & company', [
 export const targetPayload = moxfieldFixture('The next chapter', [
   ['Forest', 2], ['Sol Ring', 1], ['Swords to Plowshares', 1],
 ]);
+
+const completeCommanderBase = moxfieldFixture('Complete Commander response', [
+  ['Forest', 4], ['Island', 2], ['Mountain', 2], ['Plains', 2], ['Swamp', 2],
+  ...Array.from({ length: 86 }, (_, index) => [`Fixture Card ${index + 1}`, 1] as const),
+], [['First Commander', 1], ['Second Commander', 1]]);
+
+export const completeCommanderPayload = {
+  ...completeCommanderBase,
+  publicId: originalId,
+  main: { name: 'Preview card only', mana_cost: '{W}{U}{B}{R}{G}', prices: { usd: 1.47 } },
+  boards: {
+    ...completeCommanderBase.boards,
+    mainboard: { ...completeCommanderBase.boards.mainboard, count: 98 },
+    commanders: { ...completeCommanderBase.boards.commanders, count: 2 },
+  },
+};
+
+// A response cut off inside a card's metadata, as can happen during manual copying.
+export const truncatedCommanderJson = '{"name":"Complete Commander response","boards":{"mainboard":{"count":98,"cards":{"forest":{"quantity":4,"card":{"name":"Forest","legalities":{"legacy":"legal",';

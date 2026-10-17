@@ -6,7 +6,7 @@ An open-source, session-only Commander workbench. Compare an original deck with 
 
 ## Use it
 
-1. For each deck, use **Guided API**: enter its Moxfield link, select **Open API response**, copy the complete JSON from the new tab, and paste it back into the app. Both normal deck links and `api2.moxfield.com/v3/decks/all/…` links work.
+1. For each deck, use **Guided API**: enter its Moxfield link, select **Open API response**, then copy the complete JSON back into the app or choose a saved JSON file. Both normal deck links and `api2.moxfield.com/v3/decks/all/…` links work.
 2. If the API tab is blocked or unavailable, select **Paste deck** and paste a counted card list instead. You can use JSON for one deck and text for the other.
 3. Select **Find cards to remove**. Check the imported deck names and card totals.
 4. Work through the alphabetical checklist. Check individual cards or use the copy counter for repeated cards. Undo mistakes, filter remaining cards, or reset progress.
@@ -15,7 +15,9 @@ The comparison includes **mainboard and commanders combined**. Sideboards, consi
 
 ### Guided API and text fallback
 
-The app constructs a fixed `https://api2.moxfield.com/v3/decks/all/{id}` link and opens it in a separate tab when you select **Open API response**. Copy the complete JSON response and paste it into the labeled field. In a browser JSON viewer, use its copy function or select the raw JSON. You can also paste JSON you already have without entering a link.
+The app constructs a fixed `https://api2.moxfield.com/v3/decks/all/{id}` link and opens it in a separate tab when you select **Open API response**. Copy the complete JSON response and paste it into the labeled field. In a browser JSON viewer, use its **Copy** function, or open the raw response and select all. Selecting only the visible or expanded cards can leave out the rest of the response. You can also paste JSON you already have without entering a link.
+
+For large responses, use the API viewer’s **Save** option (or the browser’s Save Page command) to save the raw response as a `.json` file. In the app, use **Or choose a saved JSON file**. The app reads and validates the file locally, displays the deck name and total, and fills the JSON field for comparison. It does not upload the file. An incomplete response cannot safely produce a removal list; copy or save the entire response again, or use the text fallback.
 
 The app does not fetch Moxfield in the background or try to read the other tab. The manual handoff avoids cross-origin JavaScript restrictions. Moxfield can still block the API tab, return an error, or change its response format. If that happens, select **Paste deck**, open Moxfield’s export menu, and copy a text/Arena list. No proxy, Worker, access token, or account is required by this app.
 
@@ -44,13 +46,13 @@ Sideboard
 1 This section is excluded
 ```
 
-Both `1 Card Name` and `1x Card Name` work. Invalid included lines produce errors with line numbers; no partial comparison is created. Invalid or incomplete JSON likewise produces an error and a text-paste recovery option. When a JSON response includes its public deck ID, it must match the entered link. Editing a link clears its old pasted JSON so it cannot accidentally be reused for another deck.
+Both `1 Card Name` and `1x Card Name` work. Invalid included lines produce errors with line numbers; no partial comparison is created. Invalid or incomplete JSON likewise produces an error with saved-file and text-paste recovery guidance. When a JSON response includes its public deck ID, it must match the entered link. Editing a link clears its old pasted JSON so it cannot accidentally be reused for another deck. Editing inputs, switching sources, or starting over cancels any unfinished local file read.
 
 Use canonical English card names consistently in both lists, including complete split/double-faced names. Matching normalizes Unicode, whitespace, and capitalization; it does not resolve translated names, alternate-name aliases, or front-face-only names against full names. Printing suffixes and supported foil/commander markers are removed from text exports.
 
 ## Privacy
 
-Deck inputs, imported cards, and progress exist only in page memory. Refreshing or starting over clears them. The app creates no accounts, application servers, cookies, localStorage, sessionStorage, IndexedDB, analytics, service workers, or remote fonts. Deck URLs are not written to the app’s address bar. The app never edits a deck on Moxfield and does not request clipboard access.
+Deck inputs, imported cards, and progress exist only in page memory. Refreshing or starting over clears them. The app creates no accounts, application servers, cookies, localStorage, sessionStorage, IndexedDB, analytics, service workers, or remote fonts. Deck URLs are not written to the app’s address bar. The app never edits a deck on Moxfield and does not request clipboard access. A JSON file you choose is read on your device and is never uploaded; any file you save from Moxfield remains on your device until you delete it.
 
 Opening the guided API link visits Moxfield directly in another tab, without sending a referrer or giving that tab access to this app. Moxfield may use its own cookies or browser session, and the API URL may appear in your browser history. GitHub Pages serves the application. Those providers may maintain their ordinary infrastructure/security logs; the no-storage commitment covers data managed by this application. Static application files may be cached normally by the browser. **Keep the app page open while removing cards.**
 

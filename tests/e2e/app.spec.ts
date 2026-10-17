@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { originalId, originalPayload, originalText, originalUrl, separatedCommanderText, targetId, targetPayload, targetText, targetUrl } from '../fixtures/decks';
+import { completeCommanderPayload, originalId, originalPayload, originalText, originalUrl, separatedCommanderText, targetId, targetPayload, targetText, targetUrl, truncatedCommanderJson } from '../fixtures/decks';
 
 async function paste(page: Page, side: 'Original deck' | 'Target deck', text: string) {
   const card = page.getByRole('region', { name: side, exact: true });
@@ -209,7 +209,7 @@ test('recovers a plain card list pasted into the JSON field without losing it', 
   await expect(page.getByText('No removals needed. Every card in your original deck can stay.')).toBeVisible();
 });
 
-test('invalid JSON preserves removal progress, and an invalid API link opens no tab', async ({ page, context }) => {
+test('incomplete JSON preserves removal progress, and an invalid API link opens no tab', async ({ page, context }) => {
   await comparePasted(page);
   await page.getByRole('checkbox', { name: 'Mark Cultivate removed', exact: true }).check();
   const target = page.getByRole('region', { name: 'Target deck', exact: true });
@@ -221,7 +221,74 @@ test('invalid JSON preserves removal progress, and an invalid API link opens no 
   await page.locator('#target-url').fill(targetUrl);
   await page.locator('#target-json').fill('{"name":');
   await page.getByRole('button', { name: 'Find cards to remove' }).click();
-  await expect(page.locator('#target-error')).toContainText('not valid JSON');
+  await expect(page.locator('#target-error')).toContainText('appears cut off');
   await expect(page.locator('#removed-count')).toHaveText('1');
   await expect(page.locator('#target-json')).toHaveValue('{"name":');
+});
+
+test('recovers from truncated JSON with a large saved API response, entirely on the device', async ({ page }) => {
+  await comparePasted(page);
+  await page.getByRole('checkbox', { name: 'Mark Cultivate removed', exact: true }).check();
+  const original = page.getByRole('region', { name: 'Original deck', exact: true });
+  await original.getByRole('button', { name: 'Guided API', exact: true }).click();
+  await page.locator('#original-url').fill(originalUrl);
+  await page.locator('#original-json').fill(truncatedCommanderJson);
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#original-error')).toContainText('appears cut off');
+  await expect(page.locator('#removed-count')).toHaveText('1');
+
+  const network: string[] = [];
+  page.on('request', (request) => network.push(request.url()));
+  const json = JSON.stringify({ ...completeCommanderPayload, description: 'Metadata '.repeat(70_000) });
+  await original.getByLabel('Or choose a saved JSON file').setInputFiles({
+    name: 'deck.json', mimeType: 'application/json', buffer: Buffer.from(json),
+  });
+  await expect(original.getByRole('status')).toContainText('Loaded locally · Complete Commander response · 100 cards');
+  await expect(page.locator('#original-json')).toHaveValue(json);
+  await expect(page.locator('#original-error')).toBeHidden();
+  await expect(page.locator('#removed-count')).toHaveText('1');
+  await paste(page, 'Target deck', '1 First Commander\n1 Second Commander\n1 Forest');
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#original-total')).toHaveText('100 cards · mainboard + commanders');
+  await expect(page.locator('#remaining-count')).toHaveText('97 left to pull');
+  expect(network).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.reload();
+  await expect(page.locator('#original-json')).toHaveValue('');
+  await expect(page.locator('#results')).toBeHidden();
+});
+
+test('rejects an incomplete saved file and can load the corrected file under the same name', async ({ page }) => {
+  const file = page.getByRole('region', { name: 'Original deck', exact: true }).getByLabel('Or choose a saved JSON file');
+  await file.setInputFiles({ name: 'deck.json', mimeType: 'application/json', buffer: Buffer.from(truncatedCommanderJson) });
+  await expect(page.locator('#original-error')).toContainText('appears cut off');
+  await file.setInputFiles({ name: 'deck.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(originalPayload)) });
+  await expect(page.getByText('✓ Loaded locally · Counters & company · 10 cards. Select Find cards to remove.', { exact: true })).toBeVisible();
+  await expect(page.locator('#original-error')).toBeHidden();
+});
+
+test('starting over prevents an unfinished file read from restoring old deck data', async ({ page }) => {
+  await comparePasted(page);
+  const original = page.getByRole('region', { name: 'Original deck', exact: true });
+  await original.getByRole('button', { name: 'Guided API', exact: true }).click();
+  await page.evaluate(() => {
+    const read = File.prototype.text;
+    File.prototype.text = function () {
+      return read.call(this).then((value) => new Promise<string>((resolve) => {
+        Object.defineProperty(window, 'releaseSavedFile', { value: () => resolve(value), configurable: true });
+      }));
+    };
+  });
+  await original.getByLabel('Or choose a saved JSON file').setInputFiles({
+    name: 'deck.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(originalPayload)),
+  });
+  await expect.poll(() => page.evaluate(() => 'releaseSavedFile' in window)).toBe(true);
+  await page.locator('#clear-session').click();
+  await page.evaluate(() => {
+    const release: unknown = Reflect.get(window, 'releaseSavedFile');
+    if (typeof release === 'function') release();
+  });
+  await expect(page.locator('#original-json')).toHaveValue('');
+  await expect(original.getByRole('status')).toBeEmpty();
+  await expect(page.locator('#results')).toBeHidden();
 });

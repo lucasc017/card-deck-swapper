@@ -52,14 +52,18 @@ export function parseMoxfieldDeck(payload: unknown): DeckSnapshot {
 
 export function parseMoxfieldJson(text: string, sourceUrl = ''): DeckSnapshot {
   const expectedId = sourceUrl.trim() ? moxfieldDeckId(sourceUrl) : undefined;
-  if (!text.trim()) {
+  const json = text.trim();
+  if (!json) {
     throw new ImportFailure('invalid-json', 'Open the API response, copy the full JSON, and paste it below. If the API is blocked, choose Paste deck.');
   }
   let payload: unknown;
   try {
-    payload = JSON.parse(text.replace(/^\uFEFF/u, '')) as unknown;
+    payload = JSON.parse(json) as unknown;
   } catch {
-    throw new ImportFailure('invalid-json', 'This is not valid JSON. Copy the complete API response, from the opening { to the closing }. For a card list or an API error page, choose Paste deck instead.');
+    if (json.startsWith('{') && !json.endsWith('}')) {
+      throw new ImportFailure('invalid-json', 'This JSON appears cut off before the end of the response. Save the complete API response as a JSON file and choose it below, or copy all of the raw JSON. No cards were imported.');
+    }
+    throw new ImportFailure('invalid-json', 'This is not valid JSON. In the API tab, use the JSON viewer’s Copy or Save option, or select all of the raw response. You can choose a saved JSON file below. For a card list or an API error page, choose Paste deck instead.');
   }
   if (expectedId && record(payload) && typeof payload['publicId'] === 'string' && payload['publicId'] !== expectedId) {
     throw new ImportFailure('unsupported-response', 'This JSON belongs to a different deck. Open the response for the link above and paste it again, or update the link.');
