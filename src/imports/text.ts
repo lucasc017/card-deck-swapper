@@ -23,20 +23,14 @@ function stripMetadata(name: string): string {
 export function parseDeckText(text: string, name = 'Pasted deck'): DeckSnapshot {
   const entries: { name: string; quantity: number }[] = [];
   const issues: LineIssue[] = [];
-  let section: 'implicit' | 'included' | 'excluded' = 'implicit';
-  let implicitCards = false;
-  let gap = false;
+  let section: 'included' | 'excluded' = 'included';
 
   text.replace(/^\uFEFF/u, '').split(/\r?\n/u).forEach((raw, index) => {
     const line = raw.trim();
-    if (!line) {
-      if (section === 'implicit' && implicitCards) gap = true;
-      return;
-    }
+    if (!line) return;
     const heading = sectionName(line);
     if (included.has(heading) || excluded.has(heading)) {
       section = included.has(heading) ? 'included' : 'excluded';
-      gap = false;
       return;
     }
     if (/^(?:\/\/|#)/u.test(line)) return;
@@ -45,10 +39,6 @@ export function parseDeckText(text: string, name = 'Pasted deck'): DeckSnapshot 
         issues.push({ line: index + 1, message: 'Unknown section. Use Deck, Commander, or Sideboard headings.' });
       }
       return;
-    }
-    if (section === 'implicit' && gap) {
-      issues.push({ line: index + 1, message: 'Multiple unlabeled blocks. Add Deck / Commander / Sideboard headings, or paste one block containing only mainboard and commanders.' });
-      gap = false;
     }
     const match = /^(\d+)[xX]?\s+(.+)$/u.exec(line);
     if (!match?.[1] || !match[2]) {
@@ -61,7 +51,6 @@ export function parseDeckText(text: string, name = 'Pasted deck'): DeckSnapshot 
       issues.push({ line: index + 1, message: 'Use a positive whole-number quantity and a card name.' });
       return;
     }
-    if (section === 'implicit') implicitCards = true;
     entries.push({ name: cardName, quantity });
   });
 

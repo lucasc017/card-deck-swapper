@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { originalId, originalPayload, originalText, originalUrl, targetId, targetPayload, targetText, targetUrl } from '../fixtures/decks';
+import { originalId, originalPayload, originalText, originalUrl, separatedCommanderText, targetId, targetPayload, targetText, targetUrl } from '../fixtures/decks';
 
 async function paste(page: Page, side: 'Original deck' | 'Target deck', text: string) {
   const card = page.getByRole('region', { name: side, exact: true });
-  await card.getByRole('button', { name: 'Paste list', exact: true }).click();
+  await card.getByRole('button', { name: 'Paste deck', exact: true }).click();
   await card.getByLabel('Deck export').fill(text);
 }
 
@@ -83,11 +83,28 @@ test('distinguishes identical decks from a completed removal session', async ({ 
   await expect(page.locator('.removal-row')).toHaveCount(0);
 });
 
-test('compares two URLs with a validated mocked Moxfield response', async ({ page }) => {
-  await page.route(`**/v3/decks/all/${originalId}`, (route) => route.fulfill({ json: originalPayload }));
-  await page.route(`**/v3/decks/all/${targetId}`, (route) => route.fulfill({ json: targetPayload }));
-  await page.locator('#original-url').fill(`${originalUrl}?sort=name#cards`);
-  await page.locator('#target-url').fill(targetUrl);
+test('guides both API requests through separate browser tabs and compares pasted JSON', async ({ page, context }) => {
+  const requests: { type: string; referrer: string | null }[] = [];
+  await context.route('https://api2.moxfield.com/v3/decks/all/*', async (route) => {
+    requests.push({ type: route.request().resourceType(), referrer: route.request().headers()['referer'] || null });
+    await route.fulfill({ json: route.request().url().endsWith(originalId) ? originalPayload : targetPayload });
+  });
+  for (const [side, url, id, payload] of [
+    ['original', `${originalUrl}?sort=name#cards`, originalId, originalPayload],
+    ['target', targetUrl, targetId, targetPayload],
+  ] as const) {
+    await page.locator(`#${side}-url`).fill(url);
+    const popupPromise = context.waitForEvent('page');
+    await page.locator(`.deck-card-${side}`).getByRole('button', { name: 'Open API response in a new tab' }).click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState('domcontentloaded');
+    expect(popup.url()).toBe(`https://api2.moxfield.com/v3/decks/all/${id}`);
+    expect(await popup.evaluate(() => window.opener === null)).toBe(true);
+    await expect(popup.locator('body')).toContainText(payload.name);
+    await popup.close();
+    await page.locator(`#${side}-json`).fill(JSON.stringify(payload));
+  }
+  expect(requests).toEqual([{ type: 'document', referrer: null }, { type: 'document', referrer: null }]);
   await page.getByRole('button', { name: 'Find cards to remove' }).click();
   await expect(page.locator('#original-name')).toHaveText('Counters & company');
   await expect(page.locator('#target-name')).toHaveText('The next chapter');
@@ -95,16 +112,22 @@ test('compares two URLs with a validated mocked Moxfield response', async ({ pag
   await expect(page.locator('.card-name')).toHaveText(['Cultivate', 'Forest', "Kodama's Reach", 'Swiftfoot Boots']);
 });
 
-test('recovers from a blocked URL import using a mixed URL and pasted comparison', async ({ page }) => {
-  await page.route(`**/v3/decks/all/${originalId}`, (route) => route.fulfill({ json: originalPayload }));
-  await page.route(`**/v3/decks/all/${targetId}`, (route) => route.fulfill({ status: 403, body: 'Forbidden' }));
+test('offers plain deck paste when the API tab is blocked, preserving the other JSON input', async ({ page, context }) => {
+  await context.route(`**/v3/decks/all/${targetId}`, (route) => route.fulfill({ status: 403, body: 'Forbidden' }));
   await page.locator('#original-url').fill(originalUrl);
+  await page.locator('#original-json').fill(JSON.stringify(originalPayload));
   await page.locator('#target-url').fill(targetUrl);
-  await page.getByRole('button', { name: 'Find cards to remove' }).click();
-  await expect(page.locator('#target-error')).toContainText('HTTP 403');
-  await page.getByRole('button', { name: 'Use a pasted export instead' }).click();
+  const popupPromise = context.waitForEvent('page');
+  const target = page.getByRole('region', { name: 'Target deck', exact: true });
+  await target.getByRole('button', { name: 'Open API response in a new tab' }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  await expect(popup.locator('body')).toContainText('Forbidden');
+  await popup.close();
+  await target.getByRole('button', { name: 'API blocked? Paste your deck instead' }).click();
   await expect(page.locator('#target-text')).toBeFocused();
   await expect(page.locator('#target-url')).toHaveValue(targetUrl);
+  await expect(page.locator('#original-json')).toHaveValue(JSON.stringify(originalPayload));
   await page.locator('#target-text').fill(targetText);
   await page.getByRole('button', { name: 'Find cards to remove' }).click();
   await expect(page.locator('#remaining-count')).toHaveText('6 left to pull');
@@ -131,6 +154,7 @@ test('clears memory on reload and writes no persistent browser state', async ({ 
   await expect(page.locator('#results')).toBeHidden();
   await expect(page.locator('#original-url')).toHaveValue('');
   await expect(page.locator('#original-text')).toHaveValue('');
+  await expect(page.locator('#original-json')).toHaveValue('');
 });
 
 test('renders imported names as text and provides a working example', async ({ page }) => {
@@ -145,22 +169,59 @@ test('renders imported names as text and provides a working example', async ({ p
   await expect(page.locator('#remaining-count')).toHaveText('6 left to pull');
 });
 
-test('changing an input cancels the old import and ignores stale results', async ({ page }) => {
-  let release: (() => void) | undefined;
-  const waiting = new Promise<void>((resolve) => { release = resolve; });
-  await page.route(`**/v3/decks/all/${originalId}`, async (route) => {
-    await waiting;
-    await route.fulfill({ json: originalPayload }).catch(() => {});
-  });
+test('changing the source link clears stale JSON and preserves the previous checklist on failure', async ({ page }) => {
   await page.locator('#original-url').fill(originalUrl);
+  await page.locator('#original-json').fill(JSON.stringify(originalPayload));
   await paste(page, 'Target deck', targetText);
   await page.getByRole('button', { name: 'Find cards to remove' }).click();
-  await expect(page.getByRole('button', { name: 'Reading your decks' })).toBeDisabled();
-  await paste(page, 'Original deck', '1 Sol Ring');
-  await page.locator('#target-text').fill('1 Sol Ring');
+  await page.getByRole('checkbox', { name: 'Mark Cultivate removed', exact: true }).check();
+  await page.locator('#original-url').fill(targetUrl);
+  await expect(page.locator('#original-json')).toHaveValue('');
+  await expect(page.getByText('The link changed. Copy the API response for this deck again.')).toBeVisible();
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#original-error')).toContainText('Open the API response');
+  await expect(page.locator('#removed-count')).toHaveText('1');
+  await page.locator('#original-json').fill(JSON.stringify(targetPayload));
   await page.getByRole('button', { name: 'Find cards to remove' }).click();
   await expect(page.getByText('No removals needed. Every card in your original deck can stay.')).toBeVisible();
-  release?.();
-  await expect(page.locator('#original-total')).toHaveText('1 card · mainboard + commanders');
   await expect(page.locator('.removal-row')).toHaveCount(0);
+});
+
+test('accepts unlabeled commanders after the mainboard with exact quantities and punctuation', async ({ page }) => {
+  await paste(page, 'Original deck', separatedCommanderText);
+  await paste(page, 'Target deck', separatedCommanderText.replace('4 Forest', '1 Forest'));
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#original-total')).toHaveText('10 cards · mainboard + commanders');
+  await expect(page.locator('#target-total')).toHaveText('7 cards · mainboard + commanders');
+  await expect(page.locator('.card-name')).toHaveText(['Forest']);
+  await expect(page.locator('#remaining-count')).toHaveText('3 left to pull');
+});
+
+test('recovers a plain card list pasted into the JSON field without losing it', async ({ page }) => {
+  await page.locator('#original-json').fill(separatedCommanderText);
+  await paste(page, 'Target deck', separatedCommanderText);
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#original-error')).toContainText('not valid JSON');
+  await page.getByRole('button', { name: 'Use a pasted deck instead' }).click();
+  await expect(page.locator('#original-text')).toBeFocused();
+  await expect(page.locator('#original-text')).toHaveValue(separatedCommanderText);
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.getByText('No removals needed. Every card in your original deck can stay.')).toBeVisible();
+});
+
+test('invalid JSON preserves removal progress, and an invalid API link opens no tab', async ({ page, context }) => {
+  await comparePasted(page);
+  await page.getByRole('checkbox', { name: 'Mark Cultivate removed', exact: true }).check();
+  const target = page.getByRole('region', { name: 'Target deck', exact: true });
+  await target.getByRole('button', { name: 'Guided API', exact: true }).click();
+  await page.locator('#target-url').fill('https://example.com/decks/not-moxfield');
+  await target.getByRole('button', { name: 'Open API response in a new tab' }).click();
+  await expect(page.locator('#target-error')).toContainText('Use a Moxfield deck link');
+  expect(context.pages()).toHaveLength(1);
+  await page.locator('#target-url').fill(targetUrl);
+  await page.locator('#target-json').fill('{"name":');
+  await page.getByRole('button', { name: 'Find cards to remove' }).click();
+  await expect(page.locator('#target-error')).toContainText('not valid JSON');
+  await expect(page.locator('#removed-count')).toHaveText('1');
+  await expect(page.locator('#target-json')).toHaveValue('{"name":');
 });

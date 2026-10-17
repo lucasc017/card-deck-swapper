@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDeckText } from '../../src/imports/text';
 import { ImportFailure } from '../../src/domain/types';
 import { deckTotal } from '../../src/domain/normalize';
-import { originalText } from '../fixtures/decks';
+import { originalText, separatedCommanderText } from '../fixtures/decks';
 
 describe('text imports', () => {
   it('includes commanders and mainboard but excludes other zones', () => {
@@ -18,8 +18,21 @@ describe('text imports', () => {
     const deck = parseDeckText('\n1 Sol Ring\n2x Forest\n3 Forest (M21) 274 *F*\n');
     expect(deck.cards.find((card) => card.key === 'forest')?.quantity).toBe(5);
   });
-  it('rejects multiple unlabeled blocks instead of guessing the sideboard', () => {
-    expect(() => parseDeckText('1 Sol Ring\n\n1 Black Lotus')).toThrow(/small fix/u);
+  it('combines unlabeled card blocks separated by blank lines', () => {
+    expect(deckTotal(parseDeckText('1 Sol Ring\n\n\n4 Forest\n\n1 Your Commander'))).toBe(6);
+  });
+  it('accepts the mainboard followed by two unlabeled commanders and preserves punctuation', () => {
+    const deck = parseDeckText(separatedCommanderText);
+    expect(deckTotal(deck)).toBe(10);
+    expect(deck.cards.map((card) => card.name)).toEqual(expect.arrayContaining([
+      'Dark Leo & Shredder', "April O'Neil, Live on the Scene", 'Leonardo, the Balance', 'Michelangelo, the Heart',
+    ]));
+    expect(deck.cards.find((card) => card.key === 'forest')?.quantity).toBe(4);
+  });
+  it('keeps excluded sections excluded across blank lines', () => {
+    const deck = parseDeckText('1 Sol Ring\n\nSideboard\n1 Black Lotus\n\n1 Time Walk\n\nCommander\n1 Your Commander');
+    expect(deckTotal(deck)).toBe(2);
+    expect(deck.cards.some((card) => ['Black Lotus', 'Time Walk'].includes(card.name))).toBe(false);
   });
   it('reports line numbers and rejects the entire malformed list', () => {
     try { parseDeckText('Deck\n1 Sol Ring\nnot a card line\n0 Forest'); expect.fail('Expected an import failure'); }

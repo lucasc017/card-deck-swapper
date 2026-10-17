@@ -10,7 +10,7 @@ export default defineConfig({
         tag: 'meta',
         attrs: {
           'http-equiv': 'Content-Security-Policy',
-          content: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api2.moxfield.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'",
+          content: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'",
         },
         injectTo: 'head-prepend',
       }];

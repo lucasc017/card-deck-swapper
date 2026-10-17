@@ -1,7 +1,7 @@
 import { compareDecks } from './domain/compare';
 import { ImportFailure } from './domain/types';
 import type { DeckSide, DeckSnapshot } from './domain/types';
-import { loadMoxfieldDeck } from './imports/moxfield';
+import { parseMoxfieldJson } from './imports/moxfield';
 import { parseDeckText } from './imports/text';
 import { initialState, reduce } from './state';
 import type { Action } from './state';
@@ -15,7 +15,6 @@ const exampleTarget = 'Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring
 export function mountApp() {
   let state = initialState();
   let sequence = 0;
-  let controller: AbortController | null = null;
   const notice = requiredElement('comparison-notice');
   const compareButton = requiredElement<HTMLButtonElement>('compare-button');
   const compareLabel = compareButton.querySelector('span');
@@ -25,7 +24,7 @@ export function mountApp() {
     render();
   }
   function cancelPending() {
-    sequence += 1; controller?.abort(); controller = null;
+    sequence += 1;
     if (state.loading) {
       forms.original.loading(false); forms.target.loading(false);
       dispatch({ type: 'loading', value: false });
@@ -49,8 +48,6 @@ export function mountApp() {
   async function compare() {
     cancelPending();
     const run = sequence;
-    const request = new AbortController();
-    controller = request;
     notice.hidden = true;
     dispatch({ type: 'loading', value: true });
     const sides: readonly DeckSide[] = ['original', 'target'];
@@ -58,14 +55,13 @@ export function mountApp() {
       const form = forms[side];
       form.clearError(); form.loading(true);
       const source = form.read();
-      const deck = source.kind === 'url'
-        ? await loadMoxfieldDeck(source.value, request.signal)
+      const deck = source.kind === 'api'
+        ? parseMoxfieldJson(source.value, source.url)
         : parseDeckText(source.value, side === 'original' ? 'Original deck' : 'Target deck');
       if (run === sequence) form.ready(deck);
       return deck;
     }));
     if (run !== sequence) return;
-    controller = null;
     const [original, target] = results;
     if (original?.status === 'fulfilled' && target?.status === 'fulfilled') {
       dispatch({ type: 'compared', comparison: {

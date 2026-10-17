@@ -3,6 +3,14 @@ export const targetId = 'AE1jTDIDo0SYAabXyD3ajw';
 export const originalUrl = `https://moxfield.com/decks/${originalId}`;
 export const targetUrl = `https://www.moxfield.com/decks/${targetId}`;
 
+export const separatedCommanderText = `1 Dark Leo & Shredder
+1 April O'Neil, Live on the Scene
+4 Forest
+2 Island
+
+1 Leonardo, the Balance
+1 Michelangelo, the Heart`;
+
 export const originalText = `Commander
 1 Atraxa, Praetors' Voice
 

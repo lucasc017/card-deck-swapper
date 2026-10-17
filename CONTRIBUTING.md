@@ -24,6 +24,6 @@ npm run build
 npm run test:e2e
 ```
 
-Add focused tests when changing parsing, comparison, cancellation, or progress behavior. Prefer synthetic fixtures without user data. Mock Moxfield requests in automated tests; a live request is not a reliable CI dependency. Check a narrow mobile viewport and desktop layout, keyboard operation, and both color schemes after UI changes.
+Add focused tests when changing parsing, comparison, source switching, or progress behavior. Prefer synthetic fixtures without user data. Mock API-tab navigations in automated tests; a live request is not a reliable CI dependency. Verify the guided JSON handoff, plain lists with blank lines before commanders, and mixed-source comparisons. Check a narrow mobile viewport and desktop layout, keyboard operation, and both color schemes after UI changes.
 
 Describe the problem, resulting behavior, and validation in the pull request. When reporting a bug, include the input format, browser, expected/actual behavior, and a small sanitized example. Do not include credentials or private deck exports.

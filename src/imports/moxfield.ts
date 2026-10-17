@@ -11,13 +11,20 @@ function record(value: unknown): value is Record<string, unknown> {
 export function moxfieldDeckId(input: string): string {
   try {
     const url = new URL(input.trim());
-    const match = /^\/decks\/([A-Za-z0-9_-]{22})\/?$/u.exec(url.pathname);
-    if (url.protocol !== 'https:' || !['moxfield.com', 'www.moxfield.com'].includes(url.hostname)
+    const deckHost = ['moxfield.com', 'www.moxfield.com'].includes(url.hostname);
+    const apiHost = url.hostname === 'api2.moxfield.com';
+    const match = (deckHost ? /^\/decks\/([A-Za-z0-9_-]{22})\/?$/u
+      : /^\/v3\/decks\/all\/([A-Za-z0-9_-]{22})\/?$/u).exec(url.pathname);
+    if (url.protocol !== 'https:' || (!deckHost && !apiHost)
       || url.username || url.password || url.port || !match?.[1]) throw new Error();
     return match[1];
   } catch {
     throw new ImportFailure('invalid-url', 'Use a Moxfield deck link, such as https://moxfield.com/decks/ followed by the deck ID.');
   }
+}
+
+export function moxfieldApiUrl(input: string): string {
+  return `${MOXFIELD_API}${moxfieldDeckId(input)}`;
 }
 
 export function parseMoxfieldDeck(payload: unknown): DeckSnapshot {
@@ -43,46 +50,19 @@ export function parseMoxfieldDeck(payload: unknown): DeckSnapshot {
   try { return normalizeDeck(payload['name'], entries); } catch { throw unsupported(); }
 }
 
-export async function loadMoxfieldDeck(
-  input: string,
-  signal?: AbortSignal,
-  fetcher: typeof fetch = fetch,
-): Promise<DeckSnapshot> {
-  const id = moxfieldDeckId(input);
-  const controller = new AbortController();
-  let timedOut = false;
-  const abort = () => controller.abort();
-  if (signal?.aborted) throw new ImportFailure('aborted', 'Import cancelled.');
-  signal?.addEventListener('abort', abort, { once: true });
-  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15_000);
-  try {
-    const response = await fetcher(`${MOXFIELD_API}${id}`, {
-      signal: controller.signal,
-      credentials: 'omit',
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer',
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) {
-      const message = response.status === 429
-        ? 'Moxfield is limiting requests. Try again later or use a pasted export.'
-        : `Moxfield did not allow this import (HTTP ${response.status}). The deck may be private or direct access may be blocked. Use a pasted export.`;
-      throw new ImportFailure('unavailable', message);
-    }
-    let payload: unknown;
-    try { payload = await response.json(); } catch {
-      if (controller.signal.aborted) throw new Error('aborted');
-      throw new ImportFailure('unsupported-response', 'Moxfield did not return readable deck data. Please use a pasted export.');
-    }
-    if (controller.signal.aborted) throw new Error('aborted');
-    return parseMoxfieldDeck(payload);
-  } catch (error) {
-    if (timedOut) throw new ImportFailure('timeout', 'Moxfield took too long to respond. Try again or use a pasted export.');
-    if (signal?.aborted) throw new ImportFailure('aborted', 'Import cancelled.');
-    if (error instanceof ImportFailure) throw error;
-    throw new ImportFailure('network', 'Could not reach Moxfield. Your connection or Moxfield’s browser access rules may be blocking the request. Use a pasted export.');
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', abort);
+export function parseMoxfieldJson(text: string, sourceUrl = ''): DeckSnapshot {
+  const expectedId = sourceUrl.trim() ? moxfieldDeckId(sourceUrl) : undefined;
+  if (!text.trim()) {
+    throw new ImportFailure('invalid-json', 'Open the API response, copy the full JSON, and paste it below. If the API is blocked, choose Paste deck.');
   }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text.replace(/^\uFEFF/u, '')) as unknown;
+  } catch {
+    throw new ImportFailure('invalid-json', 'This is not valid JSON. Copy the complete API response, from the opening { to the closing }. For a card list or an API error page, choose Paste deck instead.');
+  }
+  if (expectedId && record(payload) && typeof payload['publicId'] === 'string' && payload['publicId'] !== expectedId) {
+    throw new ImportFailure('unsupported-response', 'This JSON belongs to a different deck. Open the response for the link above and paste it again, or update the link.');
+  }
+  return parseMoxfieldDeck(payload);
 }
