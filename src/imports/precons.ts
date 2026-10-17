@@ -62,13 +62,16 @@ export function parsePreconDeck(payload: unknown, entry: PreconEntry): PreconDec
   if (data['name'] !== entry.name || data['code'] !== entry.code || data['type'] !== 'Commander Deck'
     || !Array.isArray(data['mainBoard']) || !data['mainBoard'].length
     || !Array.isArray(data['commander']) || !data['commander'].length) throw unsupported();
-  const cards: { name: string; quantity: number }[] = [];
+  const cards: { name: string; quantity: number; printedNames?: readonly string[] }[] = [];
   const commanders: string[] = [];
   for (const zone of ['mainBoard', 'commander'] as const) {
     for (const card of data[zone] as unknown[]) {
       if (!record(card) || !nonempty(card['name']) || typeof card['count'] !== 'number'
         || !Number.isSafeInteger(card['count']) || card['count'] <= 0) throw unsupported();
-      cards.push({ name: card['name'], quantity: card['count'] });
+      if (card['flavorName'] !== undefined && !nonempty(card['flavorName'])) throw unsupported();
+      cards.push({ name: card['name'], quantity: card['count'],
+        ...(nonempty(card['flavorName']) ? { printedNames: [card['flavorName']] } : {}),
+      });
       if (zone === 'commander') commanders.push(card['name']);
     }
   }

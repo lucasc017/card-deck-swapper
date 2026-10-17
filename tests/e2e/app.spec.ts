@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { completeCommanderPayload, originalId, originalPayload, originalText, originalUrl, separatedCommanderText, targetId, targetPayload, targetText, targetUrl, truncatedCommanderJson } from '../fixtures/decks';
 

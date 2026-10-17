@@ -1,4 +1,4 @@
-import { deckTotal } from '../domain/normalize';
+import { cardLabel, deckTotal } from '../domain/normalize';
 import type { RemovalItem } from '../domain/types';
 import { totals } from '../state';
 import type { Action, AppState, Comparison } from '../state';
@@ -24,12 +24,13 @@ export function createRemovalList(dispatch: (action: Action) => void) {
   reset.addEventListener('click', () => dispatch({ type: 'reset-progress' }));
 
   function createRow(item: RemovalItem, index: number): Row {
+    const label = cardLabel(item);
     const node = element('li', 'removal-row');
-    node.dataset['cardName'] = item.name;
+    node.dataset['cardName'] = label;
     const identity = element('div', 'card-identity');
     identity.append(element('span', 'row-index', String(index + 1).padStart(2, '0')));
     const nameBlock = element('div');
-    nameBlock.append(element('h3', 'card-name', item.name), element('p', 'card-quantity', `Remove ${item.quantityToRemove} ${item.quantityToRemove === 1 ? 'copy' : 'copies'}`));
+    nameBlock.append(element('h3', 'card-name', label), element('p', 'card-quantity', `Remove ${item.quantityToRemove} ${item.quantityToRemove === 1 ? 'copy' : 'copies'}`));
     identity.append(nameBlock);
     const controls = element('div', 'row-controls');
     const status = element('span', 'copy-progress');
@@ -38,14 +39,14 @@ export function createRemovalList(dispatch: (action: Action) => void) {
     let minus: HTMLButtonElement | null = null;
     if (item.quantityToRemove === 1) {
       checkbox = element('input', 'removal-checkbox'); checkbox.type = 'checkbox';
-      checkbox.setAttribute('aria-label', `Mark ${item.name} removed`);
+      checkbox.setAttribute('aria-label', `Mark ${label} removed`);
       checkbox.addEventListener('change', () => dispatch({ type: 'adjust', key: item.key, delta: checkbox?.checked ? 1 : -1 }));
       controls.append(status, checkbox);
     } else {
       minus = element('button', 'step-button', '−'); plus = element('button', 'step-button', '+');
       minus.type = plus.type = 'button';
-      minus.setAttribute('aria-label', `Undo one ${item.name} removal`);
-      plus.setAttribute('aria-label', `Mark one ${item.name} removed`);
+      minus.setAttribute('aria-label', `Undo one ${label} removal`);
+      plus.setAttribute('aria-label', `Mark one ${label} removed`);
       minus.addEventListener('click', () => dispatch({ type: 'adjust', key: item.key, delta: -1 }));
       plus.addEventListener('click', () => dispatch({ type: 'adjust', key: item.key, delta: 1 }));
       controls.append(minus, status, plus);

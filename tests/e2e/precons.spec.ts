@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import { moxfieldFixture } from '../fixtures/decks';
 import { preconCatalogPayload, preconEntry, preconPayload, upgradedPreconText } from '../fixtures/precons';

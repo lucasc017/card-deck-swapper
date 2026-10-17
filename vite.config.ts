@@ -10,7 +10,7 @@ export default defineConfig({
         tag: 'meta',
         attrs: {
           'http-equiv': 'Content-Security-Policy',
-          content: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://mtgjson.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'",
+          content: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://mtgjson.com https://api.scryfall.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'",
         },
         injectTo: 'head-prepend',
       }];

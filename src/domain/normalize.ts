@@ -10,7 +10,7 @@ export function cardKey(name: string): string {
 
 export function normalizeDeck(
   name: string,
-  entries: readonly { readonly name: string; readonly quantity: number }[],
+  entries: readonly { readonly name: string; readonly quantity: number; readonly printedNames?: readonly string[] }[],
 ): DeckSnapshot {
   const cards = new Map<string, CardQuantity>();
   let total = 0;
@@ -25,9 +25,24 @@ export function normalizeDeck(
     const previous = cards.get(key);
     const quantity = (previous?.quantity ?? 0) + entry.quantity;
     if (!Number.isSafeInteger(quantity)) throw new Error('Card quantity is too large.');
-    cards.set(key, { key, name: previous?.name ?? normalizedName, quantity });
+    const titles = new Map<string, string>();
+    for (const title of [...(previous ? previous.printedNames ?? [previous.name] : []), ...(entry.printedNames ?? [normalizedName])]) {
+      const printed = displayName(title);
+      if (!printed) throw new Error('Printed card names must not be empty.');
+      titles.set(cardKey(printed), printed);
+    }
+    const printedNames = [...titles.values()];
+    cards.set(key, {
+      key, name: previous?.name ?? normalizedName, quantity,
+      ...(printedNames.some((title) => cardKey(title) !== key) ? { printedNames } : {}),
+    });
   }
   return { name: displayName(name), cards: [...cards.values()] };
+}
+
+export function cardLabel(card: { readonly name: string; readonly printedNames?: readonly string[] }): string {
+  const titles = card.printedNames?.filter((title) => cardKey(title) !== cardKey(card.name)) ?? [];
+  return titles.length ? `${titles.join(' / ')} (${card.name})` : card.name;
 }
 
 export function deckTotal(deck: DeckSnapshot): number {

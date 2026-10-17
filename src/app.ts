@@ -1,15 +1,17 @@
 import { compareDecks } from './domain/compare';
+import { AliasConflict } from './domain/aliases';
 import { ImportFailure } from './domain/types';
 import type { DeckSide, DeckSnapshot } from './domain/types';
 import { parseMoxfieldJson } from './imports/moxfield';
 import { parseDeckText } from './imports/text';
 import { createPreconProvider } from './imports/precons';
+import { createAliasProvider } from './imports/aliases';
 import { initialState, reduce } from './state';
 import type { Action } from './state';
 import { createDeckForm } from './ui/deck-form';
 import type { DeckFormValues } from './ui/deck-form';
 import { createRemovalList } from './ui/removal-list';
-import { requiredElement } from './ui/status';
+import { element, requiredElement } from './ui/status';
 
 const exampleOriginal = 'Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Kodama\'s Reach\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Swords to Plowshares\n1 Command Tower\n1 Exotic Orchard\n1 Path of Ancestry\n30 Forest\n20 Island\n20 Plains\n19 Swamp';
 const exampleTarget = 'Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring\n1 Arcane Signet\n1 Lightning Greaves\n1 Swords to Plowshares\n1 Command Tower\n1 Exotic Orchard\n1 Path of Ancestry\n1 Nature\'s Lore\n1 Three Visits\n1 Heroic Intervention\n1 Farseek\n1 Beast Within\n1 Dovin\'s Veto\n27 Forest\n20 Island\n20 Plains\n19 Swamp';
@@ -17,6 +19,8 @@ const exampleTarget = 'Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring
 export function mountApp() {
   let state = initialState();
   let sequence = 0;
+  let aliasRequest: AbortController | null = null;
+  let checkingAliases = false;
   let comparedInputs: Readonly<Record<DeckSide, DeckFormValues>> | null = null;
   const notice = requiredElement('comparison-notice');
   const compareButton = requiredElement<HTMLButtonElement>('compare-button');
@@ -30,12 +34,14 @@ export function mountApp() {
   }
   function cancelPending() {
     sequence += 1;
+    aliasRequest?.abort(); aliasRequest = null; checkingAliases = false;
     if (state.loading) {
       forms.original.loading(false); forms.target.loading(false);
       dispatch({ type: 'loading', value: false });
     }
   }
   const precons = createPreconProvider();
+  const aliases = createAliasProvider();
   const forms = {
     original: createDeckForm('original', cancelPending, precons),
     target: createDeckForm('target', cancelPending, precons),
@@ -48,7 +54,9 @@ export function mountApp() {
     swapButton.disabled = state.loading || !state.comparison;
     compareButton.classList.toggle('is-loading', state.loading);
     compareButton.setAttribute('aria-busy', String(state.loading));
-    if (compareLabel) compareLabel.textContent = state.loading ? 'Reading your decks…' : 'Find cards to remove';
+    if (compareLabel) compareLabel.textContent = state.loading
+      ? checkingAliases ? 'Checking alternate card names…' : 'Reading your decks…'
+      : 'Find cards to remove';
     checklist.render(state);
   }
 
@@ -73,10 +81,35 @@ export function mountApp() {
     if (run !== sequence) return;
     const [original, target] = results;
     if (original?.status === 'fulfilled' && target?.status === 'fulfilled') {
+      const controller = new AbortController();
+      aliasRequest = controller; checkingAliases = true; render();
+      let items;
+      try {
+        const registry = await aliases.load(controller.signal);
+        if (run !== sequence) return;
+        items = compareDecks(original.value, target.value, registry);
+      } catch (failure) {
+        if (run !== sequence) return;
+        checkingAliases = false; aliasRequest = null;
+        dispatch({ type: 'loading', value: false });
+        const message = failure instanceof AliasConflict
+          ? `The title “${failure.cardName}” has conflicting card identities. Check the card names in your lists before comparing.`
+          : failure instanceof ImportFailure ? failure.message : 'Alternate card names could not be checked. Retry before comparing.';
+        notice.replaceChildren(element('span', '', `${message} ${state.comparison
+          ? 'Your previous checklist and progress are unchanged.' : 'Nothing has been compared yet.'}`));
+        if (!(failure instanceof AliasConflict)) {
+          const retry = element('button', 'text-button', 'Retry');
+          retry.type = 'button'; retry.addEventListener('click', () => { void compare(swapped); });
+          notice.append(' ', retry);
+        }
+        notice.hidden = false; notice.focus();
+        return;
+      }
+      checkingAliases = false; aliasRequest = null;
       comparedInputs = { original: forms.original.values(), target: forms.target.values() };
       dispatch({ type: 'compared', comparison: {
         original: original.value, target: target.value,
-        items: compareDecks(original.value, target.value),
+        items,
       } });
       if (swapped) {
         swapAnnouncement.textContent = `Decks swapped. Removing cards from ${original.value.name} to match ${target.value.name}. Removal progress reset.`;
