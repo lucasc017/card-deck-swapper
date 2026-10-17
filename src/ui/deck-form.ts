@@ -2,20 +2,24 @@ import { deckTotal } from '../domain/normalize';
 import { ImportFailure } from '../domain/types';
 import type { DeckSide, DeckSnapshot } from '../domain/types';
 import { moxfieldApiUrl, parseMoxfieldJson } from '../imports/moxfield';
+import type { PreconProvider } from '../imports/precons';
+import { createPreconPicker } from './precon-picker';
 import { element } from './status';
 
 export type DeckInput =
   | { readonly kind: 'api'; readonly value: string; readonly url: string }
-  | { readonly kind: 'text'; readonly value: string };
+  | { readonly kind: 'text'; readonly value: string }
+  | { readonly kind: 'precon'; readonly id: string };
 
 export interface DeckFormValues {
-  readonly mode: 'api' | 'text';
+  readonly mode: 'api' | 'text' | 'precon';
   readonly url: string;
   readonly json: string;
   readonly text: string;
+  readonly preconId: string;
 }
 
-export function createDeckForm(side: DeckSide, onEdit: () => void) {
+export function createDeckForm(side: DeckSide, onEdit: () => void, provider: PreconProvider) {
   const title = side === 'original' ? 'Original deck' : 'Target deck';
   const root = element('section', `deck-card deck-card-${side}`);
   root.setAttribute('aria-labelledby', `${side}-heading`);
@@ -31,8 +35,9 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
   switcher.setAttribute('aria-label', `${title} source`);
   const apiButton = element('button', '', 'Guided API');
   const textButton = element('button', '', 'Paste deck');
-  apiButton.type = textButton.type = 'button';
-  switcher.append(apiButton, textButton);
+  const preconButton = element('button', '', 'Choose precon');
+  apiButton.type = textButton.type = preconButton.type = 'button';
+  switcher.append(apiButton, textButton, preconButton);
 
   const apiPanel = element('div', 'source-panel api-guide');
   const openStep = element('div', 'api-step');
@@ -88,27 +93,34 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
   const error = element('div', 'field-error');
   error.id = `${side}-error`; error.setAttribute('role', 'alert'); error.hidden = true;
   const note = element('p', 'import-note'); note.setAttribute('role', 'status');
-  root.append(top, switcher, apiPanel, textPanel, error, note);
-  let mode: 'api' | 'text' = 'api';
+  const picker = createPreconPicker(side, provider, edited);
+  root.append(top, switcher, apiPanel, textPanel, picker.element, error, note);
+  let mode: DeckFormValues['mode'] = 'api';
   let fileRead = 0;
 
   function edited() {
-    fileRead += 1; file.value = ''; onEdit();
+    fileRead += 1; file.value = ''; picker.cancel(); onEdit();
   }
 
   function clearError() {
+    picker.clearError();
     error.hidden = true; error.replaceChildren();
     for (const input of [url, json, text]) {
       input.removeAttribute('aria-invalid'); input.removeAttribute('aria-describedby');
     }
   }
-  function setMode(next: 'api' | 'text', focus = false) {
+  function setMode(next: DeckFormValues['mode'], focus = false) {
     mode = next;
     apiPanel.hidden = next !== 'api'; textPanel.hidden = next !== 'text';
+    picker.element.hidden = next !== 'precon'; note.hidden = next === 'precon';
     apiButton.setAttribute('aria-pressed', String(next === 'api'));
     textButton.setAttribute('aria-pressed', String(next === 'text'));
+    preconButton.setAttribute('aria-pressed', String(next === 'precon'));
     clearError(); note.textContent = '';
-    if (focus) (next === 'api' ? url : text).focus();
+    if (next === 'precon') picker.activate(); else picker.deactivate();
+    if (focus) {
+      if (next === 'precon') picker.focus(); else (next === 'api' ? url : text).focus();
+    }
   }
   function useText() {
     edited();
@@ -117,6 +129,7 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
   }
   function showError(failure: ImportFailure) {
     clearError();
+    if (mode === 'precon') { picker.showError(failure); root.classList.remove('is-loading'); return; }
     error.append(element('p', '', failure.message));
     if (failure.issues.length) {
       const list = element('ul');
@@ -134,6 +147,7 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
   }
   apiButton.addEventListener('click', () => { edited(); setMode('api', true); });
   textButton.addEventListener('click', useText);
+  preconButton.addEventListener('click', () => { edited(); setMode('precon', true); });
   fallback.addEventListener('click', useText);
   openApi.addEventListener('click', () => {
     edited(); clearError();
@@ -178,10 +192,13 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
 
   return {
     element: root,
-    read: (): DeckInput => mode === 'api' ? { kind: 'api', value: json.value, url: url.value } : { kind: 'text', value: text.value },
-    values: (): DeckFormValues => ({ mode, url: url.value, json: json.value, text: text.value }),
+    read: (): DeckInput => mode === 'api' ? { kind: 'api', value: json.value, url: url.value }
+      : mode === 'precon' ? { kind: 'precon', id: picker.id() } : { kind: 'text', value: text.value },
+    precon: picker.read,
+    values: (): DeckFormValues => ({ mode, url: url.value, json: json.value, text: text.value, preconId: picker.id() }),
     restore(values: DeckFormValues) {
       edited(); url.value = values.url; json.value = values.json; text.value = values.text;
+      picker.restore(values.preconId);
       root.classList.remove('is-loading'); setMode(values.mode);
     },
     clearError,
@@ -189,7 +206,7 @@ export function createDeckForm(side: DeckSide, onEdit: () => void) {
     ready(deck: DeckSnapshot) { note.textContent = `✓ Ready · ${deckTotal(deck)} cards`; root.classList.remove('is-loading'); },
     showError,
     setText(value: string) { edited(); text.value = value; url.value = ''; json.value = ''; setMode('text'); },
-    reset() { edited(); url.value = ''; json.value = ''; text.value = ''; root.classList.remove('is-loading'); setMode('api'); },
-    focus() { (mode === 'api' ? url : text).focus(); },
+    reset() { edited(); url.value = ''; json.value = ''; text.value = ''; picker.reset(); root.classList.remove('is-loading'); setMode('api'); },
+    focus() { if (mode === 'precon') picker.focus(); else (mode === 'api' ? url : text).focus(); },
   };
 }

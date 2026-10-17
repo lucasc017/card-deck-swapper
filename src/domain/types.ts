@@ -20,7 +20,8 @@ export interface RemovalItem {
 export type RemovalProgress = ReadonlyMap<CardKey, number>;
 export type DeckSide = 'original' | 'target';
 export type ImportErrorCode =
-  | 'invalid-url' | 'invalid-json' | 'unsupported-response' | 'invalid-text';
+  | 'invalid-url' | 'invalid-json' | 'unsupported-response' | 'invalid-text'
+  | 'invalid-precon' | 'precon-unavailable';
 
 export interface LineIssue {
   readonly line: number;

@@ -3,6 +3,7 @@ import { ImportFailure } from './domain/types';
 import type { DeckSide, DeckSnapshot } from './domain/types';
 import { parseMoxfieldJson } from './imports/moxfield';
 import { parseDeckText } from './imports/text';
+import { createPreconProvider } from './imports/precons';
 import { initialState, reduce } from './state';
 import type { Action } from './state';
 import { createDeckForm } from './ui/deck-form';
@@ -34,9 +35,10 @@ export function mountApp() {
       dispatch({ type: 'loading', value: false });
     }
   }
+  const precons = createPreconProvider();
   const forms = {
-    original: createDeckForm('original', cancelPending),
-    target: createDeckForm('target', cancelPending),
+    original: createDeckForm('original', cancelPending, precons),
+    target: createDeckForm('target', cancelPending, precons),
   };
   requiredElement('deck-inputs').append(forms.original.element, forms.target.element);
   const checklist = createRemovalList(dispatch);
@@ -63,6 +65,7 @@ export function mountApp() {
       const source = form.read();
       const deck = source.kind === 'api'
         ? parseMoxfieldJson(source.value, source.url)
+        : source.kind === 'precon' ? await form.precon()
         : parseDeckText(source.value, side === 'original' ? 'Original deck' : 'Target deck');
       if (run === sequence) form.ready(deck);
       return deck;

@@ -1,19 +1,28 @@
 # Deck Swapper
 
-An open-source, session-only Commander workbench. Compare an original deck with a target deck, then check off exactly what to remove, in alphabetical order.
+An open-source, session-only Commander workbench. Compare an original deck or stock precon with a target deck, then check off exactly what to remove, in alphabetical order.
 
 **[Open the app](https://lucasc017.github.io/card-deck-swapper/)** · [MIT license](LICENSE) · [Contributing](CONTRIBUTING.md)
 
 ## Use it
 
-1. For each deck, use **Guided API**: enter its Moxfield link, select **Open API response**, then copy the complete JSON back into the app or choose a saved JSON file. Both normal deck links and `api2.moxfield.com/v3/decks/all/…` links work.
-2. If the API tab is blocked or unavailable, select **Paste deck** and paste a counted card list instead. You can use JSON for one deck and text for the other.
-3. Select **Find cards to remove**. Check the imported deck names and card totals.
-4. Work through the alphabetical checklist. Check individual cards or use the copy counter for repeated cards. Undo mistakes, filter remaining cards, or reset progress.
+1. Upgrading a precon? Select **Choose precon** in **Original deck**, search by deck name or set code, and select the stock list. It loads automatically; you only need to import your upgraded list in **Target deck**.
+2. For a custom deck, use **Guided API**: enter its Moxfield link, select **Open API response**, then copy the complete JSON back into the app or choose a saved JSON file. Both normal deck links and `api2.moxfield.com/v3/decks/all/…` links work.
+3. If the API tab is blocked or unavailable, select **Paste deck** and paste a counted card list instead. You can mix source types.
+4. Select **Find cards to remove**. Check the imported deck names and card totals.
+5. Work through the alphabetical checklist. Check individual cards or use the copy counter for repeated cards. Undo mistakes, filter remaining cards, or reset progress.
 
-Entered the decks in reverse? Select **Swap decks** below the comparison’s deck summary. The app exchanges the inputs (including their source modes, URLs, and JSON/text), recalculates removals in the opposite direction, and resets removal progress and filtering. You can swap back with the same button. If a later edit fails to import, swapping uses the last successfully compared deck pair shown in the checklist.
+Entered the decks in reverse? Select **Swap decks** below the comparison’s deck summary. The app exchanges the inputs (including their source modes, precon selections, URLs, and JSON/text), recalculates removals in the opposite direction, and resets removal progress and filtering. You can swap back with the same button. If a later edit fails to import, swapping uses the last successfully compared deck pair shown in the checklist. A previously loaded precon remains available for swapping without another provider request.
 
 The comparison includes **mainboard and commanders combined**. Sideboards, considering lists, companions, and tokens are excluded. Artwork, set, collector number, and foil variations do not affect matching. Cards needed only by the target deck are outside this tool’s removal workflow. Deck legality is not evaluated; incomplete builds are allowed.
+
+### Stock Commander precons
+
+**Choose precon** is available in either panel, so you can upgrade from a stock list or reverse the comparison to restore one. The catalog comes live from [MTGJSON](https://mtgjson.com/downloads/all-decks/) and includes its physical **Commander Deck** entries, including starter Commander decks, crossover products, and separately named editions. Search by deck name or set code; options show the set code and release year, newest releases first. Searching never selects a deck for you.
+
+The app requests the catalog only when you choose this source, then downloads only the selected deck. It shows the deck name, commanders, and card total. Stock imports must contain exactly 100 mainboard and commander cards; display commanders, planes, schemes, sideboards, and tokens are excluded. Your upgraded list can still be an incomplete build. Matching uses full canonical English names, as with other imports.
+
+MTGJSON availability and coverage determine which precons can be selected. Requests time out after 15 seconds and offer **Retry**, without automatic retry loops. If a deck is unavailable or its data is incomplete, choose **Paste deck** and provide the stock list manually. Failures leave the previous checklist and its progress intact. Successful public catalog/deck responses stay in page memory; reloading starts a new session and loads the catalog again when needed. No bundled fallback catalog is included.
 
 ### Guided API and text fallback
 
@@ -54,7 +63,9 @@ Use canonical English card names consistently in both lists, including complete 
 
 ## Privacy
 
-Deck inputs, imported cards, and progress exist only in page memory. Refreshing or starting over clears them. The app creates no accounts, application servers, cookies, localStorage, sessionStorage, IndexedDB, analytics, service workers, or remote fonts. Deck URLs are not written to the app’s address bar. The app never edits a deck on Moxfield and does not request clipboard access. A JSON file you choose is read on your device and is never uploaded; any file you save from Moxfield remains on your device until you delete it.
+Deck inputs, imported cards, and progress exist only in page memory. Refreshing or starting over clears your inputs, precon selections, and progress. Public precon data may remain in memory until the page is reloaded. The app creates no accounts, application servers, cookies, localStorage, sessionStorage, IndexedDB, analytics, service workers, or remote fonts. Deck URLs are not written to the app’s address bar. The app never edits a deck on Moxfield and does not request clipboard access. A JSON file you choose is read on your device and is never uploaded; any file you save from Moxfield remains on your device until you delete it.
+
+Choosing a precon contacts `mtgjson.com` for the public catalog and selected deck file, without credentials or a referrer. MTGJSON can see your IP address and requested public deck, but receives none of your pasted or saved deck data, Moxfield links, or removal progress. Ordinary browser HTTP caching can apply; the first request in a page session asks the provider to revalidate cached content. Comparisons and checklist updates run locally.
 
 Opening the guided API link visits Moxfield directly in another tab, without sending a referrer or giving that tab access to this app. Moxfield may use its own cookies or browser session, and the API URL may appear in your browser history. GitHub Pages serves the application. Those providers may maintain their ordinary infrastructure/security logs; the no-storage commitment covers data managed by this application. Static application files may be cached normally by the browser. **Keep the app page open while removing cards.**
 
@@ -67,7 +78,7 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite, including `/card-deck-swapper/`. No environment variables or secrets are required. The same guided API and paste flows work in development and production.
+Open the URL printed by Vite, including `/card-deck-swapper/`. No environment variables or secrets are required. The same guided API, paste, and live precon flows work in development and production.
 
 | Command | Purpose |
 | --- | --- |
@@ -87,7 +98,7 @@ npm run build
 npm run test:e2e
 ```
 
-On Linux, use `npx playwright install --with-deps chromium webkit`. Playwright starts the preview server automatically. Tests run in desktop Chromium and an iPhone-sized WebKit browser. API-tab navigations are mocked for deterministic CI; routine checks do not depend on Moxfield availability.
+On Linux, use `npx playwright install --with-deps chromium webkit`. Playwright starts the preview server automatically. Tests run in desktop Chromium and an iPhone-sized WebKit browser. API-tab navigations and MTGJSON requests are mocked for deterministic CI; routine checks do not depend on provider availability.
 
 ## Architecture
 
@@ -102,7 +113,7 @@ src/app.ts    Import coordination and state updates
 tests/        Unit tests, synthetic fixtures, and browser workflows
 ```
 
-Data flows from pasted API JSON or deck text → validated snapshot → `max(original − target, 0)` per card → alphabetical removal items → in-memory progress. The UI preserves keyed rows and keyboard focus during updates. Failed imports leave the previous comparison intact and explicitly labeled. Successful new comparisons reset progress. All parsing and comparison run locally; there are no background deck requests or retry loops.
+Data flows from pasted API JSON, deck text, or an on-demand MTGJSON precon → validated snapshot → `max(original − target, 0)` per card → alphabetical removal items → in-memory progress. The UI preserves keyed rows and keyboard focus during updates. Failed imports leave the previous comparison intact and explicitly labeled. Successful new comparisons reset progress. All parsing and comparison run locally. Only the precon source fetches deck data; Moxfield remains a manual handoff, and no source has automatic retry loops.
 
 ## GitHub Pages and forks
 
@@ -119,4 +130,4 @@ The workflow uses GitHub’s built-in token; no personal token is needed in repo
 
 ## License and attribution
 
-Application source is available under the [MIT license](LICENSE). Contributions are welcome under the same license. This independent fan tool is not affiliated with Moxfield or Wizards of the Coast. Magic: The Gathering and card names belong to their respective owners; the software license does not grant rights to third-party trademarks or card content.
+Application source is available under the [MIT license](LICENSE). Contributions are welcome under the same license. Public precon data is provided by [MTGJSON](https://mtgjson.com/) under its [MIT license](https://mtgjson.com/license/). This independent fan tool is not affiliated with MTGJSON, Moxfield, or Wizards of the Coast. Magic: The Gathering and card names belong to their respective owners; the software license does not grant rights to third-party trademarks or card content.

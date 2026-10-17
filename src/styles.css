@@ -12,13 +12,13 @@
 }
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
-button, input, textarea { font: inherit; }
-button, a, input, textarea, summary { -webkit-tap-highlight-color: transparent; }
+button, input, textarea, select { font: inherit; }
+button, a, input, textarea, select, summary { -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
 a { color: inherit; text-underline-offset: 4px; }
-button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
 h1, h2, h3, p { margin: 0; }
 [hidden] { display: none !important; }
 .shell { width: min(1120px, calc(100% - 96px)); margin-inline: auto; }
@@ -66,6 +66,10 @@ h1 { margin-top: 20px; font-size: clamp(48px, 6.4vw, 76px); line-height: 1.04; l
 .text-input[aria-invalid='true'] { border-color: var(--danger); }
 .deck-text { resize: vertical; font: 12px/1.7 var(--mono); min-height: 165px; }
 .field-help { font-size: 10px; line-height: 1.7; color: var(--muted); margin-top: 10px; }
+.precon-panel > .field-label:not(:first-child) { margin-top: 20px; }
+.precon-select { text-overflow: ellipsis; }
+.precon-preview { font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.precon-preview:not(:empty) { margin-top: 14px; }
 .api-guide { display: grid; gap: 20px; }
 .guide-step-title { margin: 0 0 14px; font-size: 13px; font-weight: 600; }
 .guide-copy { margin-bottom: 14px; color: var(--muted); font-size: 12px; line-height: 1.7; }
